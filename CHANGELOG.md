@@ -11,6 +11,7 @@ and this project adheres to the
 ### Added
 
 - `NTFS.MFT.Attribute` with resident and non-resident attribute headers.
+- `NTFS.Runlist` with mapping pairs decoding, including sparse runs.
 
 ## [0.1.0.0] - 2026-11-27
 

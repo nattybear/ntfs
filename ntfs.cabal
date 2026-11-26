@@ -26,6 +26,7 @@ library
                       NTFS.BootSector
                       NTFS.MFT.Attribute
                       NTFS.MFT.Record
+                      NTFS.Runlist
                       NTFS.Types
                       NTFS.Volume
   hs-source-dirs:     src

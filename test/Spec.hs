@@ -13,6 +13,7 @@ import           System.IO          (SeekMode (AbsoluteSeek), hClose, hFlush,
 import           NTFS.BootSector
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
+import           NTFS.Runlist
 import           NTFS.Types         (ClusterSize (..), LCN (..), MFTRef (..),
                                      VCN (..))
 import           NTFS.Volume
@@ -31,6 +32,10 @@ main = do
       , ("MFT record bad fixup", pure testBadFixup)
       , ("resident attribute header", pure testResidentAttribute)
       , ("non-resident attribute header", pure testNonResidentAttribute)
+      , ("single data run", pure testSingleRun)
+      , ("multiple data runs", pure testMultipleRuns)
+      , ("sparse data run", pure testSparseRun)
+      , ("truncated runlist", pure testTruncatedRunlist)
       ]
   unless (and results) exitFailure
 
@@ -150,6 +155,33 @@ testNonResidentAttribute =
             0x800
             0x800
     Left _ -> False
+
+testSingleRun :: Bool
+testSingleRun =
+  parseRunlist (BS.pack [0x11, 0x07, 0x04, 0x00])
+    == Right [DataRun (VCN 0) (Just (LCN 4)) 7]
+
+testMultipleRuns :: Bool
+testMultipleRuns =
+  parseRunlist (BS.pack [0x11, 0x02, 0x04, 0x11, 0x03, 0xfe, 0x00])
+    == Right
+      [ DataRun (VCN 0) (Just (LCN 4)) 2
+      , DataRun (VCN 2) (Just (LCN 2)) 3
+      ]
+
+testSparseRun :: Bool
+testSparseRun =
+  parseRunlist (BS.pack [0x01, 0x05, 0x11, 0x02, 0x03, 0x00])
+    == Right
+      [ DataRun (VCN 0) Nothing 5
+      , DataRun (VCN 5) (Just (LCN 3)) 2
+      ]
+
+testTruncatedRunlist :: Bool
+testTruncatedRunlist =
+  case parseRunlist (BS.pack [0x11, 0x02]) of
+    Left _  -> True
+    Right _ -> False
 
 bootSector :: BS.ByteString
 bootSector =
