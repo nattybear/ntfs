@@ -14,13 +14,16 @@ import           System.IO                          (SeekMode (AbsoluteSeek),
                                                      openBinaryTempFile)
 
 import           NTFS.Attribute.Data
+import           NTFS.Attribute.FileName
 import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
 import           NTFS.Runlist
 import           NTFS.Types                         (ClusterSize (..), LCN (..),
-                                                     MFTRef (..), VCN (..))
+                                                     MFTRef (..), VCN (..),
+                                                     mftRefNumber,
+                                                     mftRefSequence)
 import           NTFS.Volume
 
 main :: IO ()
@@ -44,6 +47,8 @@ main = do
       , ("resident data attribute", pure testResidentData)
       , ("non-resident data attribute", pure testNonResidentData)
       , ("standard information attribute", pure testStandardInformation)
+      , ("file name attribute", pure testFileName)
+      , ("short file name attribute", pure testShortFileName)
       ]
   unless (and results) exitFailure
 
@@ -229,6 +234,29 @@ testStandardInformation =
         && standardUpdateSequence info == 0x1234
     Left _ -> False
 
+testFileName :: Bool
+testFileName =
+  case parseAttribute (residentAttributeOf attributeTypeFileName fileNameFixture) >>= parseFileName of
+    Right name ->
+      mftRefNumber (fileNameParent name) == 9
+        && mftRefSequence (fileNameParent name) == 2
+        && fileNameCreationTime name == 0x21
+        && fileNameAllocatedSize name == 0x2000
+        && fileNameRealSize name == 0x1000
+        && fileNameFlags name == 0x10
+        && fileNameNameLength name == 2
+        && fileNameNamespace name == fileNameNamespaceWin32
+        && fileNameName name == "AB"
+    Left _ -> False
+
+testShortFileName :: Bool
+testShortFileName =
+  case parseAttribute
+    (residentAttributeOf attributeTypeFileName (BS.take 0x45 fileNameFixture))
+    >>= parseFileName of
+    Left _  -> True
+    Right _ -> False
+
 bootSector :: BS.ByteString
 bootSector =
   build
@@ -344,6 +372,24 @@ standardInformationFixture =
     , (0x34, word32Bytes 6)
     , (0x38, word64Bytes 0x1000)
     , (0x40, word64Bytes 0x1234)
+    ]
+
+fileNameFixture :: BS.ByteString
+fileNameFixture =
+  build
+    (BS.replicate 0x46 0)
+    [ (0x00, word64Bytes 0x0002000000000009)
+    , (0x08, word64Bytes 0x21)
+    , (0x10, word64Bytes 0x22)
+    , (0x18, word64Bytes 0x23)
+    , (0x20, word64Bytes 0x24)
+    , (0x28, word64Bytes 0x2000)
+    , (0x30, word64Bytes 0x1000)
+    , (0x38, word32Bytes 0x10)
+    , (0x3c, word32Bytes 0)
+    , (0x40, [0x02])
+    , (0x41, [0x01])
+    , (0x42, [0x41, 0x00, 0x42, 0x00])
     ]
 
 residentAttributeOf :: Word32 -> BS.ByteString -> RawAttribute

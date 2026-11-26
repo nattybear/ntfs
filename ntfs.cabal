@@ -24,6 +24,7 @@ source-repository head
 library
   exposed-modules:    NTFS
                       NTFS.Attribute.Data
+                      NTFS.Attribute.FileName
                       NTFS.Attribute.StandardInformation
                       NTFS.BootSector
                       NTFS.MFT.Attribute
