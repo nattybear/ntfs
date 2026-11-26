@@ -1,18 +1,20 @@
 module Main (main) where
 
-import           Control.Exception (finally)
-import           Control.Monad     (unless)
-import           Data.Bits         (shiftR)
-import qualified Data.ByteString   as BS
-import           Data.Word         (Word16, Word32, Word64, Word8)
-import           System.Directory  (getTemporaryDirectory, removeFile)
-import           System.Exit       (exitFailure)
-import           System.IO         (SeekMode (AbsoluteSeek), hClose, hFlush,
-                                    hSeek, openBinaryTempFile)
+import           Control.Exception  (finally)
+import           Control.Monad      (unless)
+import           Data.Bits          (shiftR)
+import qualified Data.ByteString    as BS
+import           Data.Word          (Word16, Word32, Word64, Word8)
+import           System.Directory   (getTemporaryDirectory, removeFile)
+import           System.Exit        (exitFailure)
+import           System.IO          (SeekMode (AbsoluteSeek), hClose, hFlush,
+                                     hSeek, openBinaryTempFile)
 
 import           NTFS.BootSector
+import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
-import           NTFS.Types        (ClusterSize (..), LCN (..), MFTRef (..))
+import           NTFS.Types         (ClusterSize (..), LCN (..), MFTRef (..),
+                                     VCN (..))
 import           NTFS.Volume
 
 main :: IO ()
@@ -27,6 +29,8 @@ main = do
       , ("volume opens and reads MFT record", testVolume)
       , ("MFT record header and attributes", pure testMFTRecord)
       , ("MFT record bad fixup", pure testBadFixup)
+      , ("resident attribute header", pure testResidentAttribute)
+      , ("non-resident attribute header", pure testNonResidentAttribute)
       ]
   unless (and results) exitFailure
 
@@ -114,6 +118,39 @@ testBadFixup =
     Left _  -> True
     Right _ -> False
 
+testResidentAttribute :: Bool
+testResidentAttribute =
+  case parseAttribute residentAttribute of
+    Right attr ->
+      attributeTypeCode attr == 0x10
+        && attributeLength attr == 0x60
+        && not (attributeNonResident attr)
+        && attributeName attr == Nothing
+        && attributeFlags attr == 1
+        && attributeId attr == 2
+        && attributeValue attr == ResidentValue (BS.replicate 0x30 0xab)
+    Left _ -> False
+
+testNonResidentAttribute :: Bool
+testNonResidentAttribute =
+  case parseAttribute nonResidentAttribute of
+    Right attr ->
+      attributeTypeCode attr == 0x80
+        && attributeLength attr == 0x80
+        && attributeNonResident attr
+        && attributeName attr == Just (BS.pack [0x44, 0x00, 0x61, 0x00, 0x74, 0x00, 0x61, 0x00])
+        && attributeFlags attr == 0
+        && attributeId attr == 1
+        && attributeValue attr
+          == NonResidentValue
+            (VCN 3)
+            (VCN 9)
+            (BS.pack [0x11, 0x02, 0x03, 0x00])
+            0x1000
+            0x800
+            0x800
+    Left _ -> False
+
 bootSector :: BS.ByteString
 bootSector =
   build
@@ -154,6 +191,50 @@ mftRecordFixture =
     , (0x1fe, word16Bytes 0xaa55)
     , (0x3fe, word16Bytes 0xaa55)
     ]
+
+residentAttribute :: RawAttribute
+residentAttribute =
+  RawAttribute
+    0x10
+    ( build
+        (BS.replicate 0x60 0)
+        [ (0x00, word32Bytes 0x10)
+        , (0x04, word32Bytes 0x60)
+        , (0x08, [0x00])
+        , (0x09, [0x00])
+        , (0x0a, word16Bytes 0x00)
+        , (0x0c, word16Bytes 1)
+        , (0x0e, word16Bytes 2)
+        , (0x10, word32Bytes 0x30)
+        , (0x14, word16Bytes 0x18)
+        , (0x18, replicate 0x30 0xab)
+        ]
+    )
+
+nonResidentAttribute :: RawAttribute
+nonResidentAttribute =
+  RawAttribute
+    0x80
+    ( build
+        (BS.replicate 0x80 0)
+        [ (0x00, word32Bytes 0x80)
+        , (0x04, word32Bytes 0x80)
+        , (0x08, [0x01])
+        , (0x09, [0x04])
+        , (0x0a, word16Bytes 0x40)
+        , (0x0c, word16Bytes 0)
+        , (0x0e, word16Bytes 1)
+        , (0x10, word64Bytes 3)
+        , (0x18, word64Bytes 9)
+        , (0x20, word16Bytes 0x7c)
+        , (0x22, [0x00])
+        , (0x28, word64Bytes 0x1000)
+        , (0x30, word64Bytes 0x800)
+        , (0x38, word64Bytes 0x800)
+        , (0x40, [0x44, 0x00, 0x61, 0x00, 0x74, 0x00, 0x61, 0x00])
+        , (0x7c, [0x11, 0x02, 0x03, 0x00])
+        ]
+    )
 
 build :: BS.ByteString -> [(Int, [Word8])] -> BS.ByteString
 build = foldl (\bytes (offset, xs) -> putAt offset xs bytes)

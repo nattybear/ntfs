@@ -8,6 +8,10 @@ and this project adheres to the
 
 ## [Unreleased]
 
+### Added
+
+- `NTFS.MFT.Attribute` with resident and non-resident attribute headers.
+
 ## [0.1.0.0] - 2026-11-27
 
 ### Added

@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               ntfs
-version:            0.1.0.0
+version:            0.1.0.1
 synopsis:           Pure Haskell library for reading NTFS disk images
 description:
   Low-level parsers for NTFS volume geometry, MFT records, attributes and
@@ -24,6 +24,7 @@ source-repository head
 library
   exposed-modules:    NTFS
                       NTFS.BootSector
+                      NTFS.MFT.Attribute
                       NTFS.MFT.Record
                       NTFS.Types
                       NTFS.Volume
