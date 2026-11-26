@@ -13,6 +13,7 @@ and this project adheres to the
 - `NTFS.MFT.Attribute` with resident and non-resident attribute headers.
 - `NTFS.Runlist` with mapping pairs decoding, including sparse runs.
 - `NTFS.Attribute.Data` with resident and non-resident @$DATA@ views.
+- `NTFS.Attribute.StandardInformation` with timestamps and file flags.
 
 ## [0.1.0.0] - 2026-11-27
 

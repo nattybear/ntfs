@@ -1,22 +1,26 @@
 module Main (main) where
 
-import           Control.Exception   (finally)
-import           Control.Monad       (unless)
-import           Data.Bits           (shiftR)
-import qualified Data.ByteString     as BS
-import           Data.Word           (Word16, Word32, Word64, Word8)
-import           System.Directory    (getTemporaryDirectory, removeFile)
-import           System.Exit         (exitFailure)
-import           System.IO           (SeekMode (AbsoluteSeek), hClose, hFlush,
-                                      hSeek, openBinaryTempFile)
+import           Control.Exception                  (finally)
+import           Control.Monad                      (unless)
+import           Data.Bits                          (shiftR)
+import qualified Data.ByteString                    as BS
+import           Data.Word                          (Word16, Word32, Word64,
+                                                     Word8)
+import           System.Directory                   (getTemporaryDirectory,
+                                                     removeFile)
+import           System.Exit                        (exitFailure)
+import           System.IO                          (SeekMode (AbsoluteSeek),
+                                                     hClose, hFlush, hSeek,
+                                                     openBinaryTempFile)
 
 import           NTFS.Attribute.Data
+import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
 import           NTFS.Runlist
-import           NTFS.Types          (ClusterSize (..), LCN (..), MFTRef (..),
-                                      VCN (..))
+import           NTFS.Types                         (ClusterSize (..), LCN (..),
+                                                     MFTRef (..), VCN (..))
 import           NTFS.Volume
 
 main :: IO ()
@@ -39,6 +43,7 @@ main = do
       , ("truncated runlist", pure testTruncatedRunlist)
       , ("resident data attribute", pure testResidentData)
       , ("non-resident data attribute", pure testNonResidentData)
+      , ("standard information attribute", pure testStandardInformation)
       ]
   unless (and results) exitFailure
 
@@ -204,6 +209,26 @@ testNonResidentData =
           0x800
     Left _ -> False
 
+testStandardInformation :: Bool
+testStandardInformation =
+  case parseAttribute
+    (residentAttributeOf attributeTypeStandardInformation standardInformationFixture)
+    >>= parseStandardInformation of
+    Right info ->
+      standardCreationTime info == 0x11
+        && standardFileAlterTime info == 0x12
+        && standardMFTChangeTime info == 0x13
+        && standardFileReadTime info == 0x14
+        && standardFileAttributes info == 0x20
+        && standardMaxVersion info == 3
+        && standardVersion info == 2
+        && standardClassId info == 0x10
+        && standardOwnerId info == 5
+        && standardSecurityId info == 6
+        && standardQuotaCharged info == 0x1000
+        && standardUpdateSequence info == 0x1234
+    Left _ -> False
+
 bootSector :: BS.ByteString
 bootSector =
   build
@@ -301,6 +326,43 @@ nonResidentDataAttribute =
     0x80
     ( putAt 0x18 (word64Bytes 1)
         (putAt 0x10 (word64Bytes 0) (rawAttributeBytes nonResidentAttribute))
+    )
+
+standardInformationFixture :: BS.ByteString
+standardInformationFixture =
+  build
+    (BS.replicate 0x48 0)
+    [ (0x00, word64Bytes 0x11)
+    , (0x08, word64Bytes 0x12)
+    , (0x10, word64Bytes 0x13)
+    , (0x18, word64Bytes 0x14)
+    , (0x20, word32Bytes 0x20)
+    , (0x24, word32Bytes 3)
+    , (0x28, word32Bytes 2)
+    , (0x2c, word32Bytes 0x10)
+    , (0x30, word32Bytes 5)
+    , (0x34, word32Bytes 6)
+    , (0x38, word64Bytes 0x1000)
+    , (0x40, word64Bytes 0x1234)
+    ]
+
+residentAttributeOf :: Word32 -> BS.ByteString -> RawAttribute
+residentAttributeOf typeCode value =
+  RawAttribute
+    typeCode
+    ( build
+        (BS.replicate 0x18 0)
+        [ (0x00, word32Bytes typeCode)
+        , (0x04, word32Bytes (fromIntegral (0x18 + BS.length value)))
+        , (0x08, [0x00])
+        , (0x09, [0x00])
+        , (0x0a, word16Bytes 0)
+        , (0x0c, word16Bytes 0)
+        , (0x0e, word16Bytes 0)
+        , (0x10, word32Bytes (fromIntegral (BS.length value)))
+        , (0x14, word16Bytes 0x18)
+        ]
+        <> value
     )
 
 build :: BS.ByteString -> [(Int, [Word8])] -> BS.ByteString

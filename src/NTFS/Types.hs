@@ -10,10 +10,9 @@ module NTFS.Types
 import           Data.Int  (Int64)
 import           Data.Word (Word64)
 
--- | Record number in the Master File Table.
+-- | Record number and sequence number in the Master File Table.
 newtype MFTRef = MFTRef Word64
   deriving (Eq, Ord, Show)
-
 -- | Virtual Cluster Number, relative to the start of a file's data runs.
 newtype VCN = VCN Int64
   deriving (Eq, Ord, Show)

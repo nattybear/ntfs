@@ -2,6 +2,7 @@
 module NTFS
   ( module NTFS.Types
   , module NTFS.Attribute.Data
+  , module NTFS.Attribute.StandardInformation
   , module NTFS.BootSector
   , module NTFS.MFT.Attribute
   , module NTFS.MFT.Record
@@ -10,6 +11,7 @@ module NTFS
   ) where
 
 import           NTFS.Attribute.Data
+import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
