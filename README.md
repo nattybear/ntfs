@@ -6,7 +6,8 @@ then a high-level file system API.
 
 ## Status
 
-Early development. Only the boot sector parser is available so far.
+Early development. The boot sector parser and volume-level MFT record reads
+are available so far.
 
 ## Building
 
