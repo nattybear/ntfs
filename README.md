@@ -6,8 +6,16 @@ then a high-level file system API.
 
 ## Status
 
-Early development. The boot sector parser and volume-level MFT record reads
-are available so far.
+The volume, MFT and attribute layers are implemented:
+
+- `NTFS.BootSector` and `NTFS.Volume` for geometry and raw MFT record reads.
+- `NTFS.MFT.Record` and `NTFS.MFT.Attribute` for records and attribute headers.
+- `NTFS.Runlist` for mapping pairs and sparse runs.
+- `NTFS.Attribute.Data`, `NTFS.Attribute.StandardInformation` and
+  `NTFS.Attribute.FileName` for common attribute values.
+
+A high-level file system API and directory index parsing are not available yet.
+The current Hackage release is `0.1.0.1`.
 
 ## Building
 
