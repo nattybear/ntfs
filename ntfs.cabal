@@ -24,6 +24,7 @@ source-repository head
 library
   exposed-modules:    NTFS
                       NTFS.BootSector
+                      NTFS.MFT.Record
                       NTFS.Types
                       NTFS.Volume
   hs-source-dirs:     src

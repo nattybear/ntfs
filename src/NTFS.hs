@@ -2,9 +2,11 @@
 module NTFS
   ( module NTFS.Types
   , module NTFS.BootSector
+  , module NTFS.MFT.Record
   , module NTFS.Volume
   ) where
 
 import           NTFS.BootSector
+import           NTFS.MFT.Record
 import           NTFS.Types
 import           NTFS.Volume

@@ -13,3 +13,4 @@ and this project adheres to the
 - Initial library skeleton with common NTFS domain types.
 - Pure parser for the NTFS boot sector and volume geometry helpers.
 - `NTFS.Volume` with boot-sector loading, cluster offsets and MFT record reads.
+- `NTFS.MFT.Record` with header parsing, update sequence fix-up and raw attribute slices.
