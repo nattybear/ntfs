@@ -1,21 +1,22 @@
 module Main (main) where
 
-import           Control.Exception  (finally)
-import           Control.Monad      (unless)
-import           Data.Bits          (shiftR)
-import qualified Data.ByteString    as BS
-import           Data.Word          (Word16, Word32, Word64, Word8)
-import           System.Directory   (getTemporaryDirectory, removeFile)
-import           System.Exit        (exitFailure)
-import           System.IO          (SeekMode (AbsoluteSeek), hClose, hFlush,
-                                     hSeek, openBinaryTempFile)
+import           Control.Exception   (finally)
+import           Control.Monad       (unless)
+import           Data.Bits           (shiftR)
+import qualified Data.ByteString     as BS
+import           Data.Word           (Word16, Word32, Word64, Word8)
+import           System.Directory    (getTemporaryDirectory, removeFile)
+import           System.Exit         (exitFailure)
+import           System.IO           (SeekMode (AbsoluteSeek), hClose, hFlush,
+                                      hSeek, openBinaryTempFile)
 
+import           NTFS.Attribute.Data
 import           NTFS.BootSector
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
 import           NTFS.Runlist
-import           NTFS.Types         (ClusterSize (..), LCN (..), MFTRef (..),
-                                     VCN (..))
+import           NTFS.Types          (ClusterSize (..), LCN (..), MFTRef (..),
+                                      VCN (..))
 import           NTFS.Volume
 
 main :: IO ()
@@ -36,6 +37,8 @@ main = do
       , ("multiple data runs", pure testMultipleRuns)
       , ("sparse data run", pure testSparseRun)
       , ("truncated runlist", pure testTruncatedRunlist)
+      , ("resident data attribute", pure testResidentData)
+      , ("non-resident data attribute", pure testNonResidentData)
       ]
   unless (and results) exitFailure
 
@@ -183,6 +186,24 @@ testTruncatedRunlist =
     Left _  -> True
     Right _ -> False
 
+testResidentData :: Bool
+testResidentData =
+  case parseAttribute residentDataAttribute >>= parseDataAttribute of
+    Right value -> value == ResidentData (BS.replicate 0x30 0xab)
+    Left _      -> False
+
+testNonResidentData :: Bool
+testNonResidentData =
+  case parseAttribute nonResidentDataAttribute >>= parseDataAttribute of
+    Right value ->
+      value
+        == NonResidentData
+          [DataRun (VCN 0) (Just (LCN 3)) 2]
+          0x1000
+          0x800
+          0x800
+    Left _ -> False
+
 bootSector :: BS.ByteString
 bootSector =
   build
@@ -266,6 +287,20 @@ nonResidentAttribute =
         , (0x40, [0x44, 0x00, 0x61, 0x00, 0x74, 0x00, 0x61, 0x00])
         , (0x7c, [0x11, 0x02, 0x03, 0x00])
         ]
+    )
+
+residentDataAttribute :: RawAttribute
+residentDataAttribute =
+  RawAttribute
+    0x80
+    (putAt 0x00 (word32Bytes 0x80) (rawAttributeBytes residentAttribute))
+
+nonResidentDataAttribute :: RawAttribute
+nonResidentDataAttribute =
+  RawAttribute
+    0x80
+    ( putAt 0x18 (word64Bytes 1)
+        (putAt 0x10 (word64Bytes 0) (rawAttributeBytes nonResidentAttribute))
     )
 
 build :: BS.ByteString -> [(Int, [Word8])] -> BS.ByteString
