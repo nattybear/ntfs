@@ -6,16 +6,19 @@ then a high-level file system API.
 
 ## Status
 
-The volume, MFT and attribute layers are implemented:
+The volume, MFT and attribute layers are implemented, along with a combined
+file view:
 
-- `NTFS.BootSector` and `NTFS.Volume` for geometry and raw MFT record reads.
-- `NTFS.MFT.Record` and `NTFS.MFT.Attribute` for records and attribute headers.
+- `NTFS.BootSector` and `NTFS.Volume` for geometry, MFT reads and data reads.
+- `NTFS.MFT.Record`, `NTFS.MFT.Attribute` and `NTFS.MFT` for records,
+  attribute headers and MFT enumeration.
 - `NTFS.Runlist` for mapping pairs and sparse runs.
 - `NTFS.Attribute.Data`, `NTFS.Attribute.StandardInformation` and
   `NTFS.Attribute.FileName` for common attribute values.
+- `NTFS.File` for the metadata and data of one record.
 
-A high-level file system API and directory index parsing are not available yet.
-The current Hackage release is `0.1.0.1`.
+Directory index parsing and path lookup are not available yet.
+The current Hackage release is `0.1.0.2`.
 
 ## Building
 
