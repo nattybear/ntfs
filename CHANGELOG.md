@@ -11,6 +11,7 @@ and this project adheres to the
 ### Added
 
 - `NTFS.File` with a combined view of the attributes of one MFT record.
+- `NTFS.Volume.readData` for resident and non-resident attribute bytes, including sparse runs.
 
 ## [0.1.0.1] - 2026-11-27
 

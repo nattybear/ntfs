@@ -5,12 +5,15 @@ module NTFS.Volume
   , clusterOffset
   , mftOffset
   , readMFTRecordBytes
+  , readData
   ) where
 
-import qualified Data.ByteString as BS
-import           System.IO       (Handle, SeekMode (AbsoluteSeek), hSeek)
+import qualified Data.ByteString     as BS
+import           System.IO           (Handle, SeekMode (AbsoluteSeek), hSeek)
 
+import           NTFS.Attribute.Data (FileData (..))
 import           NTFS.BootSector
+import           NTFS.Runlist        (DataRun (..))
 import           NTFS.Types
 
 -- | An open NTFS volume backed by a seekable handle.
@@ -49,3 +52,31 @@ readMFTRecordBytes volume (MFTRef ref) =
       if fromIntegral (BS.length bytes) == size
         then pure (Right bytes)
         else pure (Left (UnexpectedEndOfData "MFT record is truncated"))
+
+-- | Read the bytes described by a @$DATA@ attribute.
+-- Sparse runs are returned as zero bytes; the result is trimmed to the real size.
+readData :: Volume -> FileData -> IO (Either ParseError BS.ByteString)
+readData _ (ResidentData bytes) = pure (Right bytes)
+readData volume (NonResidentData runs realSize _ _) = do
+  results <- sequence (map (readRun volume) runs)
+  pure $ do
+    chunks <- sequence results
+    let bytes = BS.concat chunks
+    let total = fromIntegral (BS.length bytes) :: Integer
+    if fromIntegral realSize > total
+      then Left (UnexpectedEndOfData "$DATA is shorter than its real size")
+      else Right (BS.take (fromIntegral realSize) bytes)
+
+readRun :: Volume -> DataRun -> IO (Either ParseError BS.ByteString)
+readRun volume run =
+  case runLCN run of
+    Nothing -> pure (Right (BS.replicate (fromIntegral size) 0))
+    Just lcn -> do
+      hSeek (volumeHandle volume) AbsoluteSeek (clusterOffset volume lcn)
+      bytes <- BS.hGet (volumeHandle volume) (fromIntegral size)
+      if fromIntegral (BS.length bytes) == size
+        then pure (Right bytes)
+        else pure (Left (UnexpectedEndOfData "data run is truncated"))
+  where
+    ClusterSize clusterBytes = bytesPerCluster (volumeBootSector volume)
+    size = toInteger (runLength run) * toInteger clusterBytes

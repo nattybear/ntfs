@@ -51,6 +51,7 @@ main = do
       , ("file name attribute", pure testFileName)
       , ("short file name attribute", pure testShortFileName)
       , ("file entry from MFT record", pure testFileEntry)
+      , ("read resident and non-resident data", testReadData)
       ]
   unless (and results) exitFailure
 
@@ -284,6 +285,40 @@ testFileEntry =
             , RawAttribute 0x90 (BS.replicate 8 0)
             ]
         }
+
+testReadData :: IO Bool
+testReadData = do
+  tmpDir <- getTemporaryDirectory
+  (path, handle) <- openBinaryTempFile tmpDir "ntfs-read-data-test.img"
+  let runs =
+        [ DataRun (VCN 0) (Just (LCN 4)) 1
+        , DataRun (VCN 1) Nothing 1
+        , DataRun (VCN 2) (Just (LCN 6)) 1
+        ]
+      expected =
+        BS.concat
+          [ BS.replicate 4096 0x11
+          , BS.replicate 4096 0
+          , BS.replicate 4096 0x22
+          ]
+      check = do
+        BS.hPut handle bootSector
+        opened <- openVolume handle
+        case opened of
+          Left _ -> pure False
+          Right volume -> do
+            hSeek handle AbsoluteSeek (clusterOffset volume (LCN 4))
+            BS.hPut handle (BS.replicate 4096 0x11)
+            hSeek handle AbsoluteSeek (clusterOffset volume (LCN 6))
+            BS.hPut handle (BS.replicate 4096 0x22)
+            hFlush handle
+            resident <- readData volume (ResidentData (BS.pack [1, 2, 3]))
+            nonResident <- readData volume (NonResidentData runs 0x3000 0x3000 0x3000)
+            pure
+              ( resident == Right (BS.pack [1, 2, 3])
+                  && nonResident == Right expected
+              )
+  check `finally` (hClose handle >> removeFile path)
 
 bootSector :: BS.ByteString
 bootSector =
