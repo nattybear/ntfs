@@ -5,6 +5,7 @@ module NTFS.MFT.Record
   , parseMFTRecord
   , isRecordInUse
   , isDirectoryRecord
+  , fixupUpdateSequence
   ) where
 
 import           Data.Bits       (shiftL, shiftR, (.&.), (.|.))
@@ -60,14 +61,22 @@ applyFixup bytesPerSector bytes
   | BS.take 4 bytes /= fileSignature =
       Left (InvalidValue "MFT record signature is not FILE")
   | bytesPerSector < 2 = Left (InvalidValue "bytes per sector is too small")
+  | otherwise = fixupUpdateSequence bytesPerSector bytes
+
+-- | Restore the sector trailers listed in a record's update sequence array.
+-- The caller is responsible for checking the record signature.
+fixupUpdateSequence :: Word16 -> BS.ByteString -> Either ParseError BS.ByteString
+fixupUpdateSequence bytesPerSector bytes
+  | BS.length bytes < 8 = Left (UnexpectedEndOfData "record header is truncated")
+  | bytesPerSector < 2 = Left (InvalidValue "bytes per sector is too small")
   | usaCount == 0 = Left (InvalidValue "update sequence array is empty")
-  | usaOffset < 0x30 = Left (InvalidValue "update sequence array offset is too small")
+  | usaOffset < 0x08 = Left (InvalidValue "update sequence array offset is too small")
   | usaOffset + 2 * usaCount > BS.length bytes =
       Left (UnexpectedEndOfData "update sequence array is truncated")
   | any outOfRange positions =
-      Left (UnexpectedEndOfData "MFT record sector trailer is truncated")
+      Left (UnexpectedEndOfData "record sector trailer is truncated")
   | any trailerMismatch positions =
-      Left (InvalidValue "MFT record update sequence number mismatch")
+      Left (InvalidValue "record update sequence number mismatch")
   | otherwise = Right (foldl replace bytes (zip positions replacements))
   where
     usaOffset = fromIntegral (word16At bytes 0x04)

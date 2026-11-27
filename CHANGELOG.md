@@ -8,6 +8,11 @@ and this project adheres to the
 
 ## [Unreleased]
 
+### Added
+
+- `parseFileNameValue` for file name values without an attribute header.
+- `fixupUpdateSequence` for applying an update sequence array to sector records.
+
 ## [0.1.0.2] - 2026-11-27
 
 ### Added

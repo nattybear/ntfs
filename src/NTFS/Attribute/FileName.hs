@@ -7,6 +7,7 @@ module NTFS.Attribute.FileName
   , fileNameNamespaceWin32DOS
   , decodeUTF16LE
   , parseFileName
+  , parseFileNameValue
   ) where
 
 import           Data.Bits          (shiftL, (.|.))
@@ -62,29 +63,34 @@ parseFileName attr
       case attributeValue attr of
         NonResidentValue{} ->
           Left (InvalidValue "$FILE_NAME is not resident")
-        ResidentValue bytes
-          | BS.length bytes < 0x42 ->
-              Left (UnexpectedEndOfData "$FILE_NAME value is truncated")
-          | 0x42 + 2 * fromIntegral nameLength > BS.length bytes ->
-              Left (UnexpectedEndOfData "$FILE_NAME name is truncated")
-          | otherwise ->
-              Right
-                FileName
-                  { fileNameParent = MFTRef (word64At bytes 0x00)
-                  , fileNameCreationTime = word64At bytes 0x08
-                  , fileNameFileAlterTime = word64At bytes 0x10
-                  , fileNameMFTChangeTime = word64At bytes 0x18
-                  , fileNameFileReadTime = word64At bytes 0x20
-                  , fileNameAllocatedSize = word64At bytes 0x28
-                  , fileNameRealSize = word64At bytes 0x30
-                  , fileNameFlags = word32At bytes 0x38
-                  , fileNameReparse = word32At bytes 0x3c
-                  , fileNameNameLength = nameLength
-                  , fileNameNamespace = BS.index bytes 0x41
-                  , fileNameName = decodeUTF16LE (BS.take (2 * fromIntegral nameLength) (BS.drop 0x42 bytes))
-                  }
-          where
-            nameLength = BS.index bytes 0x40
+        ResidentValue bytes -> parseFileNameValue bytes
+
+-- | Interpret the value bytes of a @$FILE_NAME@ attribute. Index entries hold
+-- this value directly, without an attribute header.
+parseFileNameValue :: BS.ByteString -> Either ParseError FileName
+parseFileNameValue bytes
+  | BS.length bytes < 0x42 =
+      Left (UnexpectedEndOfData "$FILE_NAME value is truncated")
+  | 0x42 + 2 * fromIntegral nameLength > BS.length bytes =
+      Left (UnexpectedEndOfData "$FILE_NAME name is truncated")
+  | otherwise =
+      Right
+        FileName
+          { fileNameParent = MFTRef (word64At bytes 0x00)
+          , fileNameCreationTime = word64At bytes 0x08
+          , fileNameFileAlterTime = word64At bytes 0x10
+          , fileNameMFTChangeTime = word64At bytes 0x18
+          , fileNameFileReadTime = word64At bytes 0x20
+          , fileNameAllocatedSize = word64At bytes 0x28
+          , fileNameRealSize = word64At bytes 0x30
+          , fileNameFlags = word32At bytes 0x38
+          , fileNameReparse = word32At bytes 0x3c
+          , fileNameNameLength = nameLength
+          , fileNameNamespace = BS.index bytes 0x41
+          , fileNameName = decodeUTF16LE (BS.take (2 * fromIntegral nameLength) (BS.drop 0x42 bytes))
+          }
+  where
+    nameLength = BS.index bytes 0x40
 
 word32At :: BS.ByteString -> Int -> Word32
 word32At bytes offset =
