@@ -18,6 +18,7 @@ import           NTFS.Attribute.FileName
 import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
 import           NTFS.File
+import           NTFS.MFT
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
 import           NTFS.Runlist
@@ -52,6 +53,7 @@ main = do
       , ("short file name attribute", pure testShortFileName)
       , ("file entry from MFT record", pure testFileEntry)
       , ("read resident and non-resident data", testReadData)
+      , ("enumerate MFT records", testReadAllMFTRecords)
       ]
   unless (and results) exitFailure
 
@@ -320,6 +322,28 @@ testReadData = do
               )
   check `finally` (hClose handle >> removeFile path)
 
+testReadAllMFTRecords :: IO Bool
+testReadAllMFTRecords = do
+  tmpDir <- getTemporaryDirectory
+  (path, handle) <- openBinaryTempFile tmpDir "ntfs-mft-enum-test.img"
+  let check = do
+        BS.hPut handle bootSector
+        hSeek handle AbsoluteSeek 16384
+        BS.hPut handle mftDataRecordFixture
+        BS.hPut handle mftRecordFixture
+        hFlush handle
+        opened <- openVolume handle
+        case opened of
+          Left _ -> pure False
+          Right volume -> do
+            count <- mftRecordCount volume
+            records <- readAllMFTRecords volume
+            pure
+              ( count == Right 2
+                  && fmap (map recordNumber) records == Right [0, 9]
+              )
+  check `finally` (hClose handle >> removeFile path)
+
 bootSector :: BS.ByteString
 bootSector =
   build
@@ -333,6 +357,42 @@ bootSector =
     , (0x44, [0xf7])
     , (0x48, word64Bytes 0x1234)
     , (0x1fe, [0x55, 0xaa])
+    ]
+
+mftDataRecordFixture :: BS.ByteString
+mftDataRecordFixture =
+  build
+    (BS.replicate 1024 0)
+    [ (0x00, [0x46, 0x49, 0x4c, 0x45])
+    , (0x04, word16Bytes 0x30)
+    , (0x06, word16Bytes 3)
+    , (0x10, word16Bytes 1)
+    , (0x12, word16Bytes 1)
+    , (0x14, word16Bytes 0x38)
+    , (0x16, word16Bytes 1)
+    , (0x18, word32Bytes 0x7c)
+    , (0x1c, word32Bytes 0x400)
+    , (0x20, word64Bytes 0)
+    , (0x28, word16Bytes 1)
+    , (0x2c, word32Bytes 0)
+    , (0x30, word16Bytes 0xaa55)
+    , (0x32, word16Bytes 0x1111)
+    , (0x34, word16Bytes 0x2222)
+    , (0x38, word32Bytes 0x80 ++ word32Bytes 0x44)
+    , (0x40, [0x01])
+    , (0x41, [0x00])
+    , (0x42, word16Bytes 0)
+    , (0x44, word16Bytes 0)
+    , (0x46, word16Bytes 0)
+    , (0x48, word64Bytes 0)
+    , (0x50, word64Bytes 1)
+    , (0x58, word16Bytes 0x40)
+    , (0x60, word64Bytes 0x800)
+    , (0x68, word64Bytes 0x800)
+    , (0x70, word64Bytes 0x800)
+    , (0x78, [0x11, 0x02, 0x04, 0x00])
+    , (0x1fe, word16Bytes 0xaa55)
+    , (0x3fe, word16Bytes 0xaa55)
     ]
 
 mftRecordFixture :: BS.ByteString

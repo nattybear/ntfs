@@ -28,6 +28,7 @@ library
                       NTFS.Attribute.StandardInformation
                       NTFS.BootSector
                       NTFS.File
+                      NTFS.MFT
                       NTFS.MFT.Attribute
                       NTFS.MFT.Record
                       NTFS.Runlist
