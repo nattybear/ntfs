@@ -49,6 +49,7 @@ main = do
       , ("resident data attribute", pure testResidentData)
       , ("non-resident data attribute", pure testNonResidentData)
       , ("standard information attribute", pure testStandardInformation)
+      , ("short standard information attribute", pure testShortStandardInformation)
       , ("file name attribute", pure testFileName)
       , ("short file name attribute", pure testShortFileName)
       , ("file entry from MFT record", pure testFileEntry)
@@ -237,6 +238,23 @@ testStandardInformation =
         && standardSecurityId info == 6
         && standardQuotaCharged info == 0x1000
         && standardUpdateSequence info == 0x1234
+    Left _ -> False
+
+testShortStandardInformation :: Bool
+testShortStandardInformation =
+  case parseAttribute
+    ( residentAttributeOf
+        attributeTypeStandardInformation
+        (BS.take 0x30 standardInformationFixture)
+    )
+    >>= parseStandardInformation of
+    Right info ->
+      standardCreationTime info == 0x11
+        && standardFileAttributes info == 0x20
+        && standardClassId info == 0x10
+        && standardOwnerId info == 0
+        && standardQuotaCharged info == 0
+        && standardUpdateSequence info == 0
     Left _ -> False
 
 testFileName :: Bool

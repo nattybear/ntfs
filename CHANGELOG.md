@@ -14,6 +14,10 @@ and this project adheres to the
 - `NTFS.Volume.readData` for resident and non-resident attribute bytes, including sparse runs.
 - `NTFS.MFT` with MFT record counts and ordered record enumeration.
 
+### Fixed
+
+- Accept short `$STANDARD_INFORMATION` values used by system files.
+
 ## [0.1.0.1] - 2026-11-27
 
 ### Added

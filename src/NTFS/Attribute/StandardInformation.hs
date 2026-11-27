@@ -13,6 +13,7 @@ import           NTFS.Types         (ParseError (..))
 
 -- | Metadata shared by all file names of a record.
 -- Timestamps are Windows @FILETIME@ values (100 ns since 1601-01-01).
+-- Fields absent from short (48-byte) values are reported as zero.
 data StandardInformation = StandardInformation
   { standardCreationTime   :: Word64
   , standardFileAlterTime  :: Word64
@@ -38,7 +39,7 @@ parseStandardInformation attr
         NonResidentValue{} ->
           Left (InvalidValue "$STANDARD_INFORMATION is not resident")
         ResidentValue bytes
-          | BS.length bytes < 0x48 ->
+          | BS.length bytes < 0x30 ->
               Left (UnexpectedEndOfData "$STANDARD_INFORMATION value is truncated")
           | otherwise ->
               Right
@@ -51,11 +52,21 @@ parseStandardInformation attr
                   , standardMaxVersion = word32At bytes 0x24
                   , standardVersion = word32At bytes 0x28
                   , standardClassId = word32At bytes 0x2c
-                  , standardOwnerId = word32At bytes 0x30
-                  , standardSecurityId = word32At bytes 0x34
-                  , standardQuotaCharged = word64At bytes 0x38
-                  , standardUpdateSequence = word64At bytes 0x40
+                  , standardOwnerId = optionalWord32 bytes 0x30
+                  , standardSecurityId = optionalWord32 bytes 0x34
+                  , standardQuotaCharged = optionalWord64 bytes 0x38
+                  , standardUpdateSequence = optionalWord64 bytes 0x40
                   }
+
+optionalWord32 :: BS.ByteString -> Int -> Word32
+optionalWord32 bytes offset
+  | offset + 4 <= BS.length bytes = word32At bytes offset
+  | otherwise = 0
+
+optionalWord64 :: BS.ByteString -> Int -> Word64
+optionalWord64 bytes offset
+  | offset + 8 <= BS.length bytes = word64At bytes offset
+  | otherwise = 0
 
 word32At :: BS.ByteString -> Int -> Word32
 word32At bytes offset =
