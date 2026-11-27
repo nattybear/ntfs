@@ -18,6 +18,7 @@ import           NTFS.Attribute.FileName
 import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
 import           NTFS.File
+import           NTFS.Index
 import           NTFS.MFT
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
@@ -55,6 +56,9 @@ main = do
       , ("file entry from MFT record", pure testFileEntry)
       , ("read resident and non-resident data", testReadData)
       , ("enumerate MFT records", testReadAllMFTRecords)
+      , ("index root entries", pure testIndexRoot)
+      , ("index record entries", pure testIndexRecord)
+      , ("directory entry lookup", testDirectoryEntries)
       ]
   unless (and results) exitFailure
 
@@ -362,6 +366,54 @@ testReadAllMFTRecords = do
               )
   check `finally` (hClose handle >> removeFile path)
 
+testIndexRoot :: Bool
+testIndexRoot =
+  case parseAttribute (residentAttributeOf attributeTypeIndexRoot indexRootFixture)
+    >>= parseIndexRoot of
+    Right [entry] ->
+      mftRefNumber (indexFileReference entry) == 9
+        && fileNameName (indexFileName entry) == "AB"
+        && indexChildVCN entry == Just (VCN 3)
+    _ -> False
+
+testIndexRecord :: Bool
+testIndexRecord =
+  case parseIndexRecord 512 indxFixture of
+    Right [entry] ->
+      mftRefNumber (indexFileReference entry) == 9
+        && fileNameName (indexFileName entry) == "AB"
+        && indexChildVCN entry == Nothing
+    _ -> False
+
+testDirectoryEntries :: IO Bool
+testDirectoryEntries = do
+  tmpDir <- getTemporaryDirectory
+  (path, handle) <- openBinaryTempFile tmpDir "ntfs-index-test.img"
+  let check = do
+        BS.hPut handle bootSector
+        hFlush handle
+        opened <- openVolume handle
+        case opened of
+          Left _ -> pure False
+          Right volume ->
+            case parseMFTRecord 512 mftRecordFixture of
+              Left _ -> pure False
+              Right base -> do
+                let record =
+                      base
+                        { recordAttributes =
+                            [residentAttributeOf attributeTypeIndexRoot indexRootFixture]
+                        }
+                entries <- readDirectoryEntries volume record
+                found <- findDirectoryEntry volume record "AB"
+                missing <- findDirectoryEntry volume record "ZZ"
+                pure
+                  ( fmap (map (fileNameName . indexFileName)) entries == Right ["AB"]
+                      && fmap (fmap (fileNameName . indexFileName)) found == Right (Just "AB")
+                      && fmap (fmap (fileNameName . indexFileName)) missing == Right Nothing
+                  )
+  check `finally` (hClose handle >> removeFile path)
+
 bootSector :: BS.ByteString
 bootSector =
   build
@@ -531,6 +583,49 @@ fileNameFixture =
     , (0x40, [0x02])
     , (0x41, [0x01])
     , (0x42, [0x41, 0x00, 0x42, 0x00])
+    ]
+
+indexRootFixture :: BS.ByteString
+indexRootFixture =
+  build
+    (BS.replicate 0x80 0)
+    [ (0x00, word32Bytes 0x30)
+    , (0x04, word32Bytes 1)
+    , (0x08, word32Bytes 0x1000)
+    , (0x0c, [0x01, 0x00, 0x00, 0x00])
+    , (0x10, word32Bytes 0x10)
+    , (0x14, word32Bytes 0x6e)
+    , (0x18, word32Bytes 0x70)
+    , (0x1c, word32Bytes 0)
+    , (0x20, word64Bytes 0x0002000000000009)
+    , (0x28, word16Bytes 0x5e)
+    , (0x2a, word16Bytes 0x46)
+    , (0x2c, word16Bytes 3)
+    , (0x30, BS.unpack fileNameFixture)
+    , (0x76, word64Bytes 3)
+    ]
+
+indxFixture :: BS.ByteString
+indxFixture =
+  build
+    (BS.replicate 1024 0)
+    [ (0x00, [0x49, 0x4e, 0x44, 0x58])
+    , (0x04, word16Bytes 0x28)
+    , (0x06, word16Bytes 3)
+    , (0x18, word32Bytes 0x28)
+    , (0x1c, word32Bytes 0x7e)
+    , (0x20, word32Bytes 0x3f8)
+    , (0x24, word32Bytes 0)
+    , (0x28, word16Bytes 0xabcd)
+    , (0x2a, word16Bytes 0x1111)
+    , (0x2c, word16Bytes 0x2222)
+    , (0x40, word64Bytes 0x0002000000000009)
+    , (0x48, word16Bytes 0x56)
+    , (0x4a, word16Bytes 0x46)
+    , (0x4c, word16Bytes 1)
+    , (0x50, BS.unpack fileNameFixture)
+    , (0x1fe, word16Bytes 0xabcd)
+    , (0x3fe, word16Bytes 0xabcd)
     ]
 
 residentAttributeOf :: Word32 -> BS.ByteString -> RawAttribute

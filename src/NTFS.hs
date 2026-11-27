@@ -6,6 +6,7 @@ module NTFS
   , module NTFS.Attribute.StandardInformation
   , module NTFS.BootSector
   , module NTFS.File
+  , module NTFS.Index
   , module NTFS.MFT
   , module NTFS.MFT.Attribute
   , module NTFS.MFT.Record
@@ -18,6 +19,7 @@ import           NTFS.Attribute.FileName
 import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
 import           NTFS.File
+import           NTFS.Index
 import           NTFS.MFT
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record

@@ -10,6 +10,8 @@ and this project adheres to the
 
 ### Added
 
+- `NTFS.Index` with `$INDEX_ROOT` and `$INDEX_ALLOCATION` entry parsing,
+  directory enumeration and exact-name lookup.
 - `parseFileNameValue` for file name values without an attribute header.
 - `fixupUpdateSequence` for applying an update sequence array to sector records.
 
