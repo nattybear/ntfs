@@ -42,11 +42,11 @@ mftOffset volume = clusterOffset volume (bsMFTStart (volumeBootSector volume))
 
 -- | Read the bytes of one MFT record.
 readMFTRecordBytes :: Volume -> MFTRef -> IO (Either ParseError BS.ByteString)
-readMFTRecordBytes volume (MFTRef ref) =
+readMFTRecordBytes volume ref =
   case mftRecordSize (volumeBootSector volume) of
     Left err -> pure (Left err)
     Right (ClusterSize size) -> do
-      let offset = mftOffset volume + fromIntegral ref * fromIntegral size
+      let offset = mftOffset volume + fromIntegral (mftRefNumber ref) * fromIntegral size
       hSeek (volumeHandle volume) AbsoluteSeek offset
       bytes <- BS.hGet (volumeHandle volume) (fromIntegral size)
       if fromIntegral (BS.length bytes) == size

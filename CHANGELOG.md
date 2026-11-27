@@ -8,12 +8,9 @@ and this project adheres to the
 
 ## [Unreleased]
 
-### Added
+### Fixed
 
-- `NTFS.Index` with `$INDEX_ROOT` and `$INDEX_ALLOCATION` entry parsing,
-  directory enumeration and exact-name lookup.
-- `parseFileNameValue` for file name values without an attribute header.
-- `fixupUpdateSequence` for applying an update sequence array to sector records.
+- `readMFTRecordBytes` now ignores the sequence number in MFT references.
 
 ## [0.1.0.2] - 2026-11-27
 
