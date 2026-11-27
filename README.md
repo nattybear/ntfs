@@ -16,8 +16,9 @@ file view:
 - `NTFS.Attribute.Data`, `NTFS.Attribute.StandardInformation` and
   `NTFS.Attribute.FileName` for common attribute values.
 - `NTFS.File` for the metadata and data of one record.
+- `NTFS.Index` for directory entries and exact-name lookup.
 
-Directory index parsing and path lookup are not available yet.
+Path lookup and NTFS name collation are not available yet.
 The current Hackage release is `0.1.0.2`.
 
 ## Building
