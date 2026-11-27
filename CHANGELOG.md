@@ -8,6 +8,10 @@ and this project adheres to the
 
 ## [Unreleased]
 
+### Added
+
+- `NTFS.File` with a combined view of the attributes of one MFT record.
+
 ## [0.1.0.1] - 2026-11-27
 
 ### Added

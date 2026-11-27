@@ -17,6 +17,7 @@ import           NTFS.Attribute.Data
 import           NTFS.Attribute.FileName
 import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
+import           NTFS.File
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
 import           NTFS.Runlist
@@ -49,6 +50,7 @@ main = do
       , ("standard information attribute", pure testStandardInformation)
       , ("file name attribute", pure testFileName)
       , ("short file name attribute", pure testShortFileName)
+      , ("file entry from MFT record", pure testFileEntry)
       ]
   unless (and results) exitFailure
 
@@ -256,6 +258,32 @@ testShortFileName =
     >>= parseFileName of
     Left _  -> True
     Right _ -> False
+
+testFileEntry :: Bool
+testFileEntry =
+  case parseFileEntry record of
+    Right entry ->
+      entryRecordNumber entry == 9
+        && isEntryInUse entry
+        && isEntryDirectory entry
+        && map fileNameName (entryFileNames entry) == ["AB"]
+        && maybe False ((== 0x11) . standardCreationTime) (entryStandardInformation entry)
+        && map fst (entryData entry) == [Nothing]
+        && map snd (entryData entry) == [ResidentData (BS.replicate 0x30 0xab)]
+    Left _ -> False
+  where
+    record =
+      ( case parseMFTRecord 512 mftRecordFixture of
+          Right value -> value
+          Left _      -> error "invalid MFT fixture"
+      )
+        { recordAttributes =
+            [ residentAttributeOf attributeTypeStandardInformation standardInformationFixture
+            , residentAttributeOf attributeTypeFileName fileNameFixture
+            , residentDataAttribute
+            , RawAttribute 0x90 (BS.replicate 8 0)
+            ]
+        }
 
 bootSector :: BS.ByteString
 bootSector =

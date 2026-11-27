@@ -5,6 +5,7 @@ module NTFS
   , module NTFS.Attribute.FileName
   , module NTFS.Attribute.StandardInformation
   , module NTFS.BootSector
+  , module NTFS.File
   , module NTFS.MFT.Attribute
   , module NTFS.MFT.Record
   , module NTFS.Runlist
@@ -15,6 +16,7 @@ import           NTFS.Attribute.Data
 import           NTFS.Attribute.FileName
 import           NTFS.Attribute.StandardInformation
 import           NTFS.BootSector
+import           NTFS.File
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
 import           NTFS.Runlist
