@@ -17,8 +17,9 @@ file view:
   `NTFS.Attribute.FileName` for common attribute values.
 - `NTFS.File` for the metadata and data of one record.
 - `NTFS.Index` for directory entries and exact-name lookup.
+- `NTFS.Path` for path components resolved through parent MFT references.
 
-Path lookup and NTFS name collation are not available yet.
+NTFS name collation is not available yet.
 The current Hackage release is `0.1.0.2`.
 
 ## Building

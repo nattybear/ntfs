@@ -32,6 +32,7 @@ library
                       NTFS.MFT
                       NTFS.MFT.Attribute
                       NTFS.MFT.Record
+                      NTFS.Path
                       NTFS.Runlist
                       NTFS.Types
                       NTFS.Volume

@@ -22,9 +22,11 @@ import           NTFS.Index
 import           NTFS.MFT
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
+import           NTFS.Path
 import           NTFS.Runlist
 import           NTFS.Types                         (ClusterSize (..), LCN (..),
-                                                     MFTRef (..), VCN (..),
+                                                     MFTRef (..),
+                                                     ParseError (..), VCN (..),
                                                      mftRefNumber,
                                                      mftRefSequence)
 import           NTFS.Volume
@@ -59,6 +61,7 @@ main = do
       , ("index root entries", pure testIndexRoot)
       , ("index record entries", pure testIndexRecord)
       , ("directory entry lookup", testDirectoryEntries)
+      , ("resolve record path", testRecordPath)
       ]
   unless (and results) exitFailure
 
@@ -414,6 +417,40 @@ testDirectoryEntries = do
                   )
   check `finally` (hClose handle >> removeFile path)
 
+testRecordPath :: IO Bool
+testRecordPath = do
+  tmpDir <- getTemporaryDirectory
+  (path, handle) <- openBinaryTempFile tmpDir "ntfs-path-test.img"
+  let mftStart = 16384
+      recordSize = 1024
+      writeRecord number bytes =
+        hSeek handle AbsoluteSeek (mftStart + fromIntegral number * recordSize)
+          >> BS.hPut handle bytes
+      check = do
+        BS.hPut handle bootSector
+        writeRecord 5 (recordWithFileName 5 5 ".")
+        writeRecord 7 (recordWithFileName 7 8 "X")
+        writeRecord 8 (recordWithFileName 8 7 "Y")
+        writeRecord 9 (recordWithFileName 9 5 "AB")
+        writeRecord 10 (recordWithFileName 10 5 "DIR")
+        writeRecord 11 (recordWithFileName 11 10 "FILE")
+        hFlush handle
+        opened <- openVolume handle
+        case opened of
+          Left _ -> pure False
+          Right volume -> do
+            child <- readRecordPath volume (MFTRef 9)
+            root <- readRecordPath volume rootDirectoryRef
+            cycle <- readRecordPath volume (MFTRef 7)
+            nested <- readRecordPath volume (MFTRef 11)
+            pure
+              ( child == Right ["AB"]
+                  && root == Right []
+                  && cycle == Left (InvalidValue "cycle in MFT parent chain")
+                  && nested == Right ["DIR", "FILE"]
+              )
+  check `finally` (hClose handle >> removeFile path)
+
 bootSector :: BS.ByteString
 bootSector =
   build
@@ -584,6 +621,47 @@ fileNameFixture =
     , (0x41, [0x01])
     , (0x42, [0x41, 0x00, 0x42, 0x00])
     ]
+
+fileNameValueOf :: Word64 -> String -> BS.ByteString
+fileNameValueOf ref name =
+  build
+    (BS.replicate (0x42 + 2 * length name) 0)
+    [ (0x00, word64Bytes ref)
+    , (0x40, [fromIntegral (length name)])
+    , (0x41, [fileNameNamespaceWin32])
+    , (0x42, concatMap (\c -> word16Bytes (fromIntegral (fromEnum c))) name)
+    ]
+
+recordWithFileName :: Word32 -> Word64 -> String -> BS.ByteString
+recordWithFileName number parent name =
+  build
+    (BS.replicate 1024 0)
+    [ (0x00, [0x46, 0x49, 0x4c, 0x45])
+    , (0x04, word16Bytes 0x30)
+    , (0x06, word16Bytes 3)
+    , (0x10, word16Bytes 1)
+    , (0x12, word16Bytes 1)
+    , (0x14, word16Bytes 0x38)
+    , (0x16, word16Bytes 3)
+    , (0x18, word32Bytes (fromIntegral used))
+    , (0x1c, word32Bytes 0x400)
+    , (0x20, word64Bytes 0)
+    , (0x28, word16Bytes 1)
+    , (0x2c, word32Bytes number)
+    , (0x30, word16Bytes 0xaa55)
+    , (0x32, word16Bytes 0x1111)
+    , (0x34, word16Bytes 0x2222)
+    , (0x38, BS.unpack attribute)
+    , (endOffset, word32Bytes 0xffffffff)
+    , (0x1fe, word16Bytes 0xaa55)
+    , (0x3fe, word16Bytes 0xaa55)
+    ]
+  where
+    attribute =
+      rawAttributeBytes
+        (residentAttributeOf attributeTypeFileName (fileNameValueOf parent name))
+    endOffset = 0x38 + BS.length attribute
+    used = endOffset + 8
 
 indexRootFixture :: BS.ByteString
 indexRootFixture =

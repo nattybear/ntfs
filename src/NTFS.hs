@@ -10,6 +10,7 @@ module NTFS
   , module NTFS.MFT
   , module NTFS.MFT.Attribute
   , module NTFS.MFT.Record
+  , module NTFS.Path
   , module NTFS.Runlist
   , module NTFS.Volume
   ) where
@@ -23,6 +24,7 @@ import           NTFS.Index
 import           NTFS.MFT
 import           NTFS.MFT.Attribute
 import           NTFS.MFT.Record
+import           NTFS.Path
 import           NTFS.Runlist
 import           NTFS.Types
 import           NTFS.Volume
