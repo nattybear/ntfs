@@ -8,6 +8,8 @@ and this project adheres to the
 
 ## [Unreleased]
 
+## [0.1.1.0] - 2026-11-27
+
 ### Added
 
 - `NTFS.Index` with `$INDEX_ROOT` and `$INDEX_ALLOCATION` entry parsing,

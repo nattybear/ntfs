@@ -20,7 +20,7 @@ file view:
 - `NTFS.Path` for path components resolved through parent MFT references.
 
 NTFS name collation is not available yet.
-The current Hackage release is `0.1.0.2`.
+The current Hackage release is `0.1.1.0`.
 
 ## Building
 
